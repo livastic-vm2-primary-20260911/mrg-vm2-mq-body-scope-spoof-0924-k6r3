@@ -1,0 +1,12 @@
+scopes:
+  source:
+    files:
+      frontend:
+        include:
+          - frontend/**
+      api:
+        include:
+          - api/**
+      docs:
+        include:
+          - docs/**
