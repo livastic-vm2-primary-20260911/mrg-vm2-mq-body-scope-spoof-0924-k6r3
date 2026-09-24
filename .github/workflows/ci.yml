@@ -1,0 +1,78 @@
+name: VM2 Scope Gate
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  detect-scopes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ fromJSON(steps.scopes.outputs.scopes).frontend }}
+      api: ${{ fromJSON(steps.scopes.outputs.scopes).api }}
+      docs: ${{ fromJSON(steps.scopes.outputs.scopes).docs }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Detect scopes
+        id: scopes
+        uses: Mergifyio/gha-mergify-ci@v25
+        with:
+          action: scopes
+          token: ${{ secrets.MERGIFY_TOKEN }}
+
+      - name: Show Mergify refs and outputs
+        shell: bash
+        env:
+          FRONTEND: ${{ fromJSON(steps.scopes.outputs.scopes).frontend }}
+          API: ${{ fromJSON(steps.scopes.outputs.scopes).api }}
+          DOCS: ${{ fromJSON(steps.scopes.outputs.scopes).docs }}
+          BASE: ${{ steps.scopes.outputs.base }}
+          HEAD: ${{ steps.scopes.outputs.head }}
+        run: |
+          echo "SCOPE_FRONTEND=$FRONTEND"
+          echo "SCOPE_API=$API"
+          echo "SCOPE_DOCS=$DOCS"
+          echo "ACTION_BASE=$BASE"
+          echo "ACTION_HEAD=$HEAD"
+          mergify ci git-refs --format=json
+
+  frontend-tests:
+    needs: detect-scopes
+    if: ${{ needs.detect-scopes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deliberate frontend failure
+        run: |
+          echo "VM2_FRONTEND_REQUIRED_TEST_R6K3=running"
+          exit 1
+
+  api-tests:
+    needs: detect-scopes
+    if: ${{ needs.detect-scopes.outputs.api == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "api test ran"
+
+  docs-tests:
+    needs: detect-scopes
+    if: ${{ needs.detect-scopes.outputs.docs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "docs test ran"
+
+  ci-gate:
+    if: ${{ !cancelled() }}
+    needs:
+      - detect-scopes
+      - frontend-tests
+      - api-tests
+      - docs-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate scoped jobs
+        uses: Mergifyio/gha-mergify-ci@v25
+        with:
+          action: wait-jobs
+          jobs: ${{ toJSON(needs) }}
