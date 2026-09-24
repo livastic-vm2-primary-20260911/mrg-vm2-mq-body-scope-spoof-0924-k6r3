@@ -1,1 +1,1 @@
-attack synchronized frontend change
+attack synchronized frontend change with valid forged metadata
